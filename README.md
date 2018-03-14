@@ -31,3 +31,9 @@ INSERT INTO member (login, name, admin, password, activated, last_activity) VALU
 ```
 
 I also haven't added the rows suggested in the [install guide](http://www.public-software-group.org/mercurial/liquid_feedback_frontend/raw-file/tip/INSTALL.html)
+
+## TODO
+
+* Hooks for inserting config
+  * Including possibility of using e.g. RDS instance for Postgres database
+* Init scripts for the server
