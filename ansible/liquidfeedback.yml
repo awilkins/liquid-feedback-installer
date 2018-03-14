@@ -6,8 +6,8 @@
   vars:
     lf_core_version: 3.2.2
     lf_core_sha256: 817cea419446fdaee3cbdd98e463b22f720d078088850e9b5faa48427c62c1cb
-    moonbridge_version: 1.0.2
-    moonbridge_sha256: 5fe1f6332676836e8d04d3fcdf9e2d5a075050b39adfdad47f7d3455b9296f6d
+    moonbridge_version: 1.0.1
+    moonbridge_sha256: 2b5859d29d12ed92b8b10b76c24f401d30ae83b9514870a68c78a9d42c71e240
     webmcp_version: 2.1.0
     webmcp_sha256: 12fafb58744d39acba176bc46f9ea32af2e88856c4fcad6b96b20da2d2f31525
     lf_frontend_version: 3.2.1
@@ -32,7 +32,9 @@
         - lua5.2
         - liblua5.2-dev
         - libpq-dev
+        - libbsd-dev
         - postgresql
+        - postgresql-server-dev-9.6
         - pmake
         - imagemagick
         - exim4
@@ -62,14 +64,26 @@
       make:
         chdir: "/tmp/liquid_feedback_core-v{{lf_core_version}}"
 
+    - name: Create core folder
+      file:
+        path: /opt/liquid_feedback_core
+        state: directory
+
     - name: Install core
-      action: copy remote_src=yes src="/tmp/liquid_feedback_core-v{{lf_core_version}}/{{item}}" dest=/opt/liquid_feedback_core/
+      action: copy remote_src=yes src="/tmp/liquid_feedback_core-v{{lf_core_version}}/{{item}}" dest="/opt/liquid_feedback_core/"
       items:
         - core.sql
         - lf_update
         - lf_update_suggestion_order
 
     - name: Create database
+      postgresql_db:
+        name: liquid_feedback
+        state: present
+      become: yes
+      become_user: postgres
+
+    - name: Initialize database
       postgresql_db:
         name: liquid_feedback
         state: restore
@@ -81,6 +95,27 @@
       postgresql_user:
         name: www-data
         db: liquid_feedback
+        role_attr_flags: "NOSUPERUSER,CREATEDB,NOCREATEROLE"
+      become: yes
+      become_user: postgres
+
+    - name: Grant table privs
+      postgresql_privs:
+        database: liquid_feedback
+        roles: www-data
+        privs: SELECT,INSERT,UPDATE,DELETE
+        type: table
+        objs: ALL_IN_SCHEMA
+      become: yes
+      become_user: postgres
+
+    - name: Grant seq privs
+      postgresql_privs:
+        database: liquid_feedback
+        roles: www-data
+        privs: USAGE,SELECT
+        type: sequence
+        objs: ALL_IN_SCHEMA
       become: yes
       become_user: postgres
 
@@ -100,11 +135,24 @@
     - name: Build Moonbridge
       shell: |
         pmake MOONBR_LUA_PATH=/opt/moonbridge/?.lua
-        mkdir /opt/moonbridge
-        cp moonbridge /opt/moonbridge
-        cp moonbridge_http.lua /opt/moonbridge
       args:
         chdir: "/tmp/moonbridge-v{{moonbridge_version}}"
+
+    - name: Create Moonbridge folder
+      file:
+        path: /opt/moonbridge
+        state: directory
+
+    - name: Install moonbridge
+      action: copy remote_src=yes src="/tmp/moonbridge-v{{moonbridge_version}}/{{item}}" dest="/opt/moonbridge/"
+      with_items:
+        - moonbridge
+        - moonbridge_http.lua
+
+    - name: Enable execution
+      file:
+        path: /opt/moonbridge/moonbridge
+        mode: +x
 
     # WebMCP
     - name: Download WebMCP
@@ -124,10 +172,16 @@
         chdir: "/tmp/webmcp-v{{webmcp_version}}"
 
     - name: Install WebMCP
-      copy:
-        remote_src: yes
-        src: "/tmp/webmcp-v{{webmcp_version}}/framework/"
-        dest: /opt/webmcp
+      command: cp -RL framework "/opt/webmcp-v{{webmcp_version}}"
+      args:
+        chdir: "/tmp/webmcp-v{{webmcp_version}}"
+        creates: /opt/webmcp-v{{webmcp_version}}
+
+    - name: Link Frontend
+      file:
+        path: /opt/webmcp
+        state: link
+        src: "/opt/webmcp-v{{webmcp_version}}"
 
     # LiquidFeedback Frontend
     - name: Download LiquidFeedback Frontend
@@ -135,15 +189,27 @@
         url: "http://www.public-software-group.org/pub/projects/liquid_feedback/frontend/v{{lf_frontend_version}}/liquid_feedback_frontend-v{{lf_frontend_version}}.tar.gz"
         dest: /tmp
         checksum: "sha256:{{lf_frontend_sha256}}"
+      delegate_to: 127.0.0.1
+      become: no
 
     - name: Unpack LiquidFeedback Frontend
       unarchive:
-        remote_src: yes
         src: "/tmp/liquid_feedback_frontend-v{{lf_frontend_version}}.tar.gz"
-        dest: /tmp
+        dest: /opt
 
-    - name: Build LiquidFeedback Frontend
-      copy:
-        remote_src: yes
-        src: "/tmp/liquid_feedback_frontend-v{{lf_frontend_version}}"
-        dest: /opt/liquid_feedback_frontend
+    - name: Link Frontend
+      file:
+        path: /opt/liquid_feedback_frontend
+        state: link
+        src: "/opt/liquid_feedback_frontend-v{{lf_frontend_version}}"
+
+    - name: Remove temp dir
+      file:
+        path: /opt/liquid_feedback_frontend/tmp
+        state: absent
+
+    - name: Link temp dir
+      file:
+        path: /opt/liquid_feedback_frontend/tmp
+        state: link
+        src: /tmp
