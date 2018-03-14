@@ -38,7 +38,8 @@
         - exim4
         - python-pip
         - python-virtualenv
-    
+        - python-psycopg2
+
     - name: Install markdown2
       pip:
         name: markdown2
