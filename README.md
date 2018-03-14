@@ -6,6 +6,8 @@ Vagrantfile provided should you just want to do
 
 `vagrant up`
 
+Server comes up on port [8080](http://localhost:8080).
+
 ## Creating Admin User
 
 Much of the documentation for LiquidFeedback is out of date!
