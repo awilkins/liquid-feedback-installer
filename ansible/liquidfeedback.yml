@@ -1,0 +1,160 @@
+---
+- hosts: all
+
+  become: yes
+  
+  vars:
+    lf_core_version: 3.2.2
+    lf_core_sha256: 817cea419446fdaee3cbdd98e463b22f720d078088850e9b5faa48427c62c1cb
+    moonbridge_version: 1.0.2
+    moonbridge_sha256: 5fe1f6332676836e8d04d3fcdf9e2d5a075050b39adfdad47f7d3455b9296f6d  
+    webmcp_version: 2.1.0
+    webmcp_sha256: 12fafb58744d39acba176bc46f9ea32af2e88856c4fcad6b96b20da2d2f31525
+    lf_frontend_version: 3.2.1
+    lf_frontend_sha256: ec55f35f226bb00ada5c42ddb3e701457b56a215bca89261295b3ea0e3a6bb1e
+    
+  tasks:
+  
+    - name: Update package metadata
+      apt:
+        update_cache: yes
+        
+    - name: Upgrade packages to latest
+      apt:
+        name: "*"
+        state: latest
+        force_apt_get: yes
+        
+    - name: Install packaged dependencies
+      action: apt name="{{item}}" state=installed
+      with_items:
+        - build-essential
+        - lua5.2
+        - liblua5.2-dev
+        - libpq-dev
+        - postgresql
+        - pmake
+        - imagemagick
+        - exim4
+        - python-pip
+        - python-virtualenv
+    
+    - name: Install markdown2
+      pip:
+        name: markdown2
+        state: latest
+    
+    # LiquidFeedback Core
+    - name: Get LiquidFeedback Core
+      get_url:
+        url: "http://www.public-software-group.org/pub/projects/liquid_feedback/backend/v{{lf_core_version}}/liquid_feedback_core-v{{lf_core_version}}.tar.gz"
+        dest: /tmp
+        checksum: "sha256:{{lf_core_sha256}}"
+    
+    - name: Unpack LiquidFeedback Core
+      unarchive:
+        remote_src: yes
+        src: "/tmp/liquid_feedback_core-v{{lf_core_version}}.tar.gz"
+        dest: /tmp
+    
+    - name: Create database
+      postgresql_db:
+        name: liquid_feedback
+    
+    - name: Enable DB access
+      postgresql_user:
+        name: www-data
+        db: liquid_feedback
+    
+    - name: Build LiquidFeedback Core
+      shell: |
+        make
+        mkdir /opt/liquid_feedback_core
+        cp core.sql lf_update lf_update_issue_order lf_update_suggestion_order /opt/liquid_feedback_core
+        su www-data -s $SHELL
+        psql -v ON_ERROR_STOP=1 -f core.sql liquid_feedback
+        exit
+      args:
+        chdir: "/tmp/liquid_feedback_core-v{{lf_core_version}}"
+    
+    # Moonbridge
+    - name: Get Moonbridge
+      get_url:
+        url: "http://www.public-software-group.org/pub/projects/moonbridge/v{{moonbridge_version}}/moonbridge-v{{moonbridge_version}}.tar.gz"
+        dest: /tmp
+        checksum: "sha256:{{moonbridge_sha256}}"
+    
+    - name: Unpack LiquidFeedback Core
+      unarchive:
+        remote_src: yes
+        src: "/tmp/liquid_feedback_core-v{{lf_core_version}}.tar.gz"
+        dest: /tmp
+    
+    - name: Build LiquidFeedback Core
+      shell: |
+        make
+        mkdir /opt/liquid_feedback_core
+        cp core.sql lf_update lf_update_issue_order lf_update_suggestion_order /opt/liquid_feedback_core
+        su www-data -s $SHELL
+        createdb liquid_feedback
+        createlang plpgsql liquid_feedback
+        psql -v ON_ERROR_STOP=1 -f core.sql liquid_feedback
+        exit
+      args:
+        chdir: "/tmp/liquid_feedback_core-v{{lf_core_version}}"
+    
+    - name: Unpack Moonbridge
+      unarchive:
+        remote_src: yes
+        src: "/tmp/moonbridge-v{{moonbridge_version}}.tar.gz"
+        dest: /tmp
+    
+    - name: Build Moonbridge
+      shell: |
+        pmake MOONBR_LUA_PATH=/opt/moonbridge/?.lua
+        mkdir /opt/moonbridge
+        cp moonbridge /opt/moonbridge
+        cp moonbridge_http.lua /opt/moonbridge
+      args:
+        chdir: "/tmp/moonbridge-v{{moonbridge_version}}"
+    
+    # WebMCP
+    - name: Download WebMCP
+      get_url:
+        url: "http://www.public-software-group.org/pub/projects/webmcp/v{{webmcp_version}}/webmcp-v{{webmcp_version}}.tar.gz"
+        dest: /tmp
+        checksum: "sha256:{{webmcp_sha256}}"
+    
+    - name: Unpack WebMCP
+      unarchive:
+        remote_src: yes
+        src: "/tmp/webmcp-v{{webmcp_version}}.tar.gz"
+        dest: /tmp
+    
+    - name: Build WebMCP
+      shell: |
+        make
+        mkdir /opt/webmcp
+        cp -RL framework/* /opt/webmcp
+      args:
+        chdir: "/tmp/webmcp-v{{webmcp_version}}"
+    
+    # LiquidFeedback Frontend
+    - name: Download LiquidFeedback Frontend
+      get_url:
+        url: "http://www.public-software-group.org/pub/projects/liquid_feedback/frontend/v{{lf_frontend_version}}/liquid_feedback_frontend-v{{lf_frontend_version}}.tar.gz"
+        dest: /tmp
+        checksum: "sha256:{{lf_frontend_sha256}}"
+      
+    - name: Unpack LiquidFeedback Frontend
+      unarchive:
+        remote_src: yes
+        src: "/tmp/liquid_feedback_frontend-v{{lf_frontend_version}}.tar.gz"
+        dest: /tmp
+    
+    - name: Build LiquidFeedback Frontend
+      copy:
+        remote_src: yes
+        src: "/tmp/liquid_feedback_frontend-v{{lf_frontend_version}}"
+        dest: /opt/liquid_feedback_frontend
+    
