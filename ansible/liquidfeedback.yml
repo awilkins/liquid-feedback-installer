@@ -119,13 +119,15 @@
         src: "/tmp/webmcp-v{{webmcp_version}}.tar.gz"
         dest: /tmp
 
-    - name: Build WebMCP
-      shell: |
-        make
-        mkdir /opt/webmcp
-        cp -RL framework/* /opt/webmcp
-      args:
+    - name: Make WebMCP
+      make:
         chdir: "/tmp/webmcp-v{{webmcp_version}}"
+
+    - name: Install WebMCP
+      copy:
+        remote_src: yes
+        src: "/tmp/webmcp-v{{webmcp_version}}/framework/"
+        dest: /opt/webmcp
 
     # LiquidFeedback Frontend
     - name: Download LiquidFeedback Frontend
