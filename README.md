@@ -8,6 +8,17 @@ Vagrantfile provided should you just want to do
 
 Server comes up on port [8080](http://localhost:8080).
 
+But only if you do this :
+
+* Shell into it
+* Create a config file (just copying `/opt/liquid_feedback_frontend/config/example.lua` to `myconfig.lua` is enough)
+* Run
+
+```shell
+sudo su www-data -s $SHELL
+/opt/moonbridge/moonbridge /opt/webmcp/bin/mcp.lua /opt/webmcp/ /opt/liquid_feedback_frontend/ main myconfig
+```
+
 ## Creating Admin User
 
 Much of the documentation for LiquidFeedback is out of date!
