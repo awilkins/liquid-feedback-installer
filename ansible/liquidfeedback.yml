@@ -90,26 +90,7 @@
         url: "http://www.public-software-group.org/pub/projects/moonbridge/v{{moonbridge_version}}/moonbridge-v{{moonbridge_version}}.tar.gz"
         dest: /tmp
         checksum: "sha256:{{moonbridge_sha256}}"
-    
-    - name: Unpack LiquidFeedback Core
-      unarchive:
-        remote_src: yes
-        src: "/tmp/liquid_feedback_core-v{{lf_core_version}}.tar.gz"
-        dest: /tmp
-    
-    - name: Build LiquidFeedback Core
-      shell: |
-        make
-        mkdir /opt/liquid_feedback_core
-        cp core.sql lf_update lf_update_issue_order lf_update_suggestion_order /opt/liquid_feedback_core
-        su www-data -s $SHELL
-        createdb liquid_feedback
-        createlang plpgsql liquid_feedback
-        psql -v ON_ERROR_STOP=1 -f core.sql liquid_feedback
-        exit
-      args:
-        chdir: "/tmp/liquid_feedback_core-v{{lf_core_version}}"
-    
+
     - name: Unpack Moonbridge
       unarchive:
         remote_src: yes
