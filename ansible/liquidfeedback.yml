@@ -57,27 +57,33 @@
         remote_src: yes
         src: "/tmp/liquid_feedback_core-v{{lf_core_version}}.tar.gz"
         dest: /tmp
-    
+
+    - name: Build LiquidFeedback Core
+      make:
+        chdir: "/tmp/liquid_feedback_core-v{{lf_core_version}}"
+
+    - name: Install core
+      action: copy remote_src=yes src="/tmp/liquid_feedback_core-v{{lf_core_version}}/{{item}}" dest=/opt/liquid_feedback_core/
+      items:
+        - core.sql
+        - lf_update
+        - lf_update_suggestion_order
+
     - name: Create database
       postgresql_db:
         name: liquid_feedback
-    
+        state: restore
+        target: /opt/liquid_feedback_core/core.sql
+      become: yes
+      become_user: postgres
+
     - name: Enable DB access
       postgresql_user:
         name: www-data
         db: liquid_feedback
-    
-    - name: Build LiquidFeedback Core
-      shell: |
-        make
-        mkdir /opt/liquid_feedback_core
-        cp core.sql lf_update lf_update_issue_order lf_update_suggestion_order /opt/liquid_feedback_core
-        su www-data -s $SHELL
-        psql -v ON_ERROR_STOP=1 -f core.sql liquid_feedback
-        exit
-      args:
-        chdir: "/tmp/liquid_feedback_core-v{{lf_core_version}}"
-    
+      become: yes
+      become_user: postgres
+
     # Moonbridge
     - name: Get Moonbridge
       get_url:
