@@ -4,6 +4,7 @@
   become: yes
 
   vars:
+    ansible_ssh_pipelining: yes
     lf_core_version: 3.2.2
     lf_core_sha256: 817cea419446fdaee3cbdd98e463b22f720d078088850e9b5faa48427c62c1cb
     moonbridge_version: 1.0.1
